@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Leaflet + D3 Donut Markers from CSV</title>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    #map { height: 100vh; }
+    .donut-marker svg {
+      width: 60px;
+      height: 60px;
+    }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+
+<!-- Load Leaflet and D3 -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+
+<script>
+  const map = L.map('map').setView([47.5, -88.0], 7); // Center in general area
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18,
+    attribution: '© OpenStreetMap contributors'
+  }).addTo(map);
+
+  // Load all rows from CSV (skip first row)
+  d3.csv("df_complete.csv").then(data => {
+    const colors = d3.schemeCategory10;
+    const radius = 10;
+
+    data.slice(1).forEach((row, index) => {
+      const lat = parseFloat(row.lat?.trim());
+      const lon = parseFloat(row.lon?.trim());
+
+      if (isNaN(lat) || isNaN(lon)) {
+        console.warn(`Row ${index + 2} skipped: invalid coordinates`);
+        return;
+      }
+
+      // Example chart data from row (customize as needed)
+      const chartData = [
+        parseFloat(row.ndvi) || 30,
+        parseFloat(row.elevation) || 40,
+        100 - (parseFloat(row.ndvi) || 30) - (parseFloat(row.elevation) || 40)
+      ];
+
+      // Build donut marker
+      const container = document.createElement('div');
+      container.className = 'donut-marker';
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', 2 * radius)
+        .attr('height', 2 * radius)
+        .append('g')
+        .attr('transform', `translate(${radius}, ${radius})`);
+
+      const arc = d3.arc().innerRadius(radius * 0.5).outerRadius(radius);
+      const pie = d3.pie();
+
+      svg.selectAll('path')
+        .data(pie(chartData))
+        .enter()
+        .append('path')
+        .attr('d', arc)
+        .attr('fill', (d, i) => colors[i]);
+
+      const icon = L.divIcon({
+        html: container,
+        className: '',
+        iconSize: [2 * radius, 2 * radius]
+      });
+
+      L.marker([lat, lon], { icon }).addTo(map);
+    });
+  }).catch(error => {
+    console.error("Error loading CSV:", error);
+  });
+</script>
+
+</body>
+</html>
